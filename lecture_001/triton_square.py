@@ -1,9 +1,20 @@
+"""
+Triton is a Domain Specific Language (DSL) for writing CUDA kernels in Python
+However, different from inline and Numba, Triton does not generate a CUDA kernel.
+Instead, it generates a PTX (Parallel Thread Execution) kernel, which is basically CUDA assembly code.
+Integrating Triton with PyTorch is trivial, as it is a Python library.
+
+When running a Triton kernel, we will also have a cache file .triton, and we can check the individual
+folders for all the Intermediate Representations (IR) generated, including the PTX code.
+"""
 # Adapted straight from https://triton-lang.org/main/getting-started/tutorials/02-fused-softmax.html
+
 import triton
 import triton.language as tl
 import torch
 
 # if @triton.jit(interpret=True) does not work, please use the following two lines to enable interpret mode
+# This is especially useful for debugging.
 # import os
 # os.environ["TRITON_INTERPRET"] = "1"
 
@@ -18,6 +29,9 @@ def square_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_
     col_offsets = tl.arange(0, BLOCK_SIZE)
     input_ptrs = row_start_ptr + col_offsets
     # Load the row into SRAM, using a mask since BLOCK_SIZE may be > than n_cols
+    # --------------------------------------------------------------------------
+    # Here, we are operating over rows instead of over threads
+    # --------------------------------------------------------------------------
     row = tl.load(input_ptrs, mask=col_offsets < n_cols, other=-float('inf'))
 
     square_output = row * row
@@ -52,7 +66,7 @@ def square(x):
         y.stride(0),
         n_cols,
         num_warps=num_warps,
-        BLOCK_SIZE=BLOCK_SIZE,
+        BLOCK_SIZE=BLOCK_SIZE, # Change this to 1024 will significant boost the performance
     )
     return y
 

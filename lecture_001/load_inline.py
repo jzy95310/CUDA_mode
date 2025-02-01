@@ -1,10 +1,13 @@
 # Look at this test for inspiration
 # https://github.com/pytorch/pytorch/blob/main/test/test_cpp_extensions_jit.py
 
+# Run a CUDA kernel in PyTorch using load_inline
+
 import torch
 from torch.utils.cpp_extension import load_inline
 
 # Define the CUDA kernel and C++ wrapper
+# Actual kernel function for calculating the square of a matrix
 cuda_source = '''
 __global__ void square_matrix_kernel(const float* matrix, float* result, int width, int height) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
@@ -33,14 +36,15 @@ torch::Tensor square_matrix(torch::Tensor matrix) {
     }
 '''
 
+# Call the CUDA function from the C++ wrapper
 cpp_source = "torch::Tensor square_matrix(torch::Tensor matrix);"
 
 # Load the CUDA kernel as a PyTorch extension
 square_matrix_extension = load_inline(
     name='square_matrix_extension',
-    cpp_sources=cpp_source,
-    cuda_sources=cuda_source,
-    functions=['square_matrix'],
+    cpp_sources=cpp_source, # name of the C++ wrapper
+    cuda_sources=cuda_source, # name of the CUDA kernel
+    functions=['square_matrix'], # name of the function to call
     with_cuda=True,
     extra_cuda_cflags=["-O2"],
     build_directory='./load_inline_cuda',
@@ -49,6 +53,9 @@ square_matrix_extension = load_inline(
 
 a = torch.tensor([[1., 2., 3.], [4., 5., 6.]], device='cuda')
 print(square_matrix_extension.square_matrix(a))
+
+# This will automatically generate the CUDA code files which are in the load_inline_cuda directory
+# However, compiling the CUDA code from source can be slow.
 
 # (cudamode) ubuntu@ip-172-31-9-217:~/cudamode/cudamodelecture1$ python load_inline.py 
 # tensor([[ 1.,  4.,  9.],
